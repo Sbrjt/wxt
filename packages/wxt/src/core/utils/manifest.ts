@@ -1,28 +1,28 @@
+import type { Browser } from '@wxt-dev/browser';
+import defu from 'defu';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'path';
 import {
-  Entrypoint,
   BackgroundEntrypoint,
   BuildOutput,
   ContentScriptEntrypoint,
+  Entrypoint,
   OptionsEntrypoint,
   PopupEntrypoint,
   SidepanelEntrypoint,
 } from '../../types';
-import { mkdir } from 'node:fs/promises';
-import { resolve } from 'path';
-import { getEntrypointBundlePath } from './entrypoints';
-import { ContentSecurityPolicy } from './content-security-policy';
+import { wxt } from '../wxt';
 import {
   hashContentScriptOptions,
   mapWxtOptionsToContentScript,
 } from './content-scripts';
+import { ContentSecurityPolicy } from './content-security-policy';
+import { getEntrypointBundlePath } from './entrypoints';
+import { writeFileIfDifferent } from './fs';
 import { getPackageJson } from './package';
 import { normalizePath } from './paths';
-import { writeFileIfDifferent } from './fs';
-import defu from 'defu';
-import { wxt } from '../wxt';
 import { addDiscoveredThemeIcons } from './theme-icons';
 import { ManifestV3WebAccessibleResource } from './types';
-import type { Browser } from '@wxt-dev/browser';
 
 /** Writes the manifest to the output directory and the build output. */
 export async function writeManifest(
@@ -115,18 +115,16 @@ export async function generateManifest(
       ? undefined
       : versionName;
 
-  // Warn if building for Firefox without data_collection_permissions
+  // Default Firefox data collection permissions to "none"
   if (
     wxt.config.browser === 'firefox' &&
-    !userManifest.browser_specific_settings?.gecko
-      ?.data_collection_permissions &&
-    !wxt.config.suppressWarnings?.firefoxDataCollection
+    !userManifest.browser_specific_settings?.gecko?.data_collection_permissions
   ) {
-    wxt.logger.warnOnce(
-      'Firefox requires `data_collection_permissions` for new extensions from November 3, 2025. Existing extensions are exempt for now.\n' +
-        'For more details, see: https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/\n' +
-        'To suppress this warning, set `suppressWarnings.firefoxDataCollection` to `true` in your wxt config.\n',
-    );
+    userManifest.browser_specific_settings ??= {};
+    userManifest.browser_specific_settings.gecko ??= {};
+    userManifest.browser_specific_settings.gecko.data_collection_permissions = {
+      required: ['none'],
+    };
   }
 
   if (
